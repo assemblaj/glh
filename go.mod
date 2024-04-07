@@ -1,4 +1,4 @@
-module glh
+module github.com/assemblaj/glh
 
 go 1.21.4
 
