@@ -5,7 +5,10 @@
 package glh
 
 import (
-	"github.com/go-gl/gl"
+	"unsafe"
+
+	gl "github.com/go-gl/gl/v2.1/gl"
+
 	"image"
 	"image/png"
 	"os"
@@ -43,7 +46,7 @@ type TextureAtlas struct {
 	width   int         // Width (in pixels) of the underlying texture.
 	height  int         // Height (in pixels) of the underlying texture.
 	depth   int         // Color depth of the underlying texture.
-	texture gl.Texture  // Glyph texture.
+	texture uint32      // Glyph texture.
 }
 
 // NewAtlas creates a new texture atlas.
@@ -71,7 +74,8 @@ func NewTextureAtlas(width, height, depth int) *TextureAtlas {
 	// We want a one pixel border around the whole atlas to avoid
 	// any artefacts when sampling our texture.
 	a.nodes = append(a.nodes, atlasNode{1, 1, width - 2})
-	a.texture = gl.GenTexture()
+
+	gl.GenTextures(1, &a.texture)
 	return a
 }
 
@@ -79,7 +83,7 @@ func NewTextureAtlas(width, height, depth int) *TextureAtlas {
 func (a *TextureAtlas) Release() {
 	a.data = nil
 	a.nodes = nil
-	a.texture.Delete()
+	gl.DeleteTextures(1, &a.texture)
 	a.texture = 0
 	a.width = 0
 	a.height = 0
@@ -106,21 +110,21 @@ func (a *TextureAtlas) Clear() {
 }
 
 // Bind binds the atlas texture, so it can be used for rendering.
-func (a *TextureAtlas) Bind(target gl.GLenum) { a.texture.Bind(target) }
+func (a *TextureAtlas) Bind(target uint32) { gl.BindTexture(target, a.texture) }
 
 // Unbind unbinds the current texture.
 // Note that this applies to any texture currently active.
 // If this is not the atlas texture, it will still perform the action.
-func (a *TextureAtlas) Unbind(target gl.GLenum) { a.texture.Unbind(target) }
+func (a *TextureAtlas) Unbind(target uint32) { gl.BindTexture(target, 0) }
 
 // Commit creates the actual texture from the atlas image data.
 // This should be called after all regions have been defined and set,
 // and before you start using the texture for display.
-func (a *TextureAtlas) Commit(target gl.GLenum) {
+func (a *TextureAtlas) Commit(target uint32) {
 	gl.PushAttrib(gl.CURRENT_BIT | gl.ENABLE_BIT)
 	gl.Enable(target)
 
-	a.texture.Bind(target)
+	gl.BindTexture(target, a.texture)
 
 	gl.TexParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
@@ -129,16 +133,16 @@ func (a *TextureAtlas) Commit(target gl.GLenum) {
 
 	switch a.depth {
 	case 4:
-		gl.TexImage2D(target, 0, gl.RGBA, a.width, a.height,
-			0, gl.RGBA, gl.UNSIGNED_BYTE, a.data)
+		gl.TexImage2D(target, 0, gl.RGBA, int32(a.width), int32(a.height),
+			0, gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
 
 	case 3:
-		gl.TexImage2D(target, 0, gl.RGB, a.width, a.height,
-			0, gl.RGB, gl.UNSIGNED_BYTE, a.data)
+		gl.TexImage2D(target, 0, gl.RGB, int32(a.width), int32(a.height),
+			0, gl.RGB, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
 
 	case 1:
-		gl.TexImage2D(target, 0, gl.ALPHA, a.width, a.height,
-			0, gl.ALPHA, gl.UNSIGNED_BYTE, a.data)
+		gl.TexImage2D(target, 0, gl.ALPHA, int32(a.width), int32(a.height),
+			0, gl.ALPHA, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
 	}
 
 	gl.PopAttrib()
