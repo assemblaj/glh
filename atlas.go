@@ -46,7 +46,8 @@ type TextureAtlas struct {
 	width   int         // Width (in pixels) of the underlying texture.
 	height  int         // Height (in pixels) of the underlying texture.
 	depth   int         // Color depth of the underlying texture.
-	texture uint32      // Glyph texture.
+	filter  int
+	texture uint32 // Glyph texture.
 }
 
 // NewAtlas creates a new texture atlas.
@@ -57,7 +58,7 @@ type TextureAtlas struct {
 // depth should be 1, 3 or 4 and it will specify if the texture is
 // created with Alpha, RGB or RGBA channels.
 // The image data supplied through Atlas.Set() should be of the same format.
-func NewTextureAtlas(width, height, depth int) *TextureAtlas {
+func NewTextureAtlas(width, height, depth, filter int) *TextureAtlas {
 	switch depth {
 	case 1, 3, 4:
 	default:
@@ -68,6 +69,7 @@ func NewTextureAtlas(width, height, depth int) *TextureAtlas {
 	a.width = width
 	a.height = height
 	a.depth = depth
+	a.filter = filter
 	a.used = 0
 	a.data = make([]byte, width*height*depth)
 
@@ -121,15 +123,16 @@ func (a *TextureAtlas) Unbind(target uint32) { gl.BindTexture(target, 0) }
 // This should be called after all regions have been defined and set,
 // and before you start using the texture for display.
 func (a *TextureAtlas) Commit(target uint32) {
-	gl.PushAttrib(gl.CURRENT_BIT | gl.ENABLE_BIT)
+	//gl.PushAttrib(gl.CURRENT_BIT | gl.ENABLE_BIT)
 	gl.Enable(target)
 
 	gl.BindTexture(target, a.texture)
+	//gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 
 	gl.TexParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.TexParameteri(target, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(target, gl.TEXTURE_MAG_FILTER, int32(a.filter))
+	gl.TexParameteri(target, gl.TEXTURE_MIN_FILTER, int32(a.filter))
 
 	switch a.depth {
 	case 4:
@@ -141,11 +144,14 @@ func (a *TextureAtlas) Commit(target uint32) {
 			0, gl.RGB, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
 
 	case 1:
-		gl.TexImage2D(target, 0, gl.ALPHA, int32(a.width), int32(a.height),
-			0, gl.ALPHA, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
+		gl.TexImage2D(target, 0, gl.LUMINANCE, int32(a.width), int32(a.height),
+			0, gl.LUMINANCE, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
 	}
 
-	gl.PopAttrib()
+	gl.BindTexture(target, 0)
+	gl.Disable(target)
+
+	//gl.PopAttrib()
 }
 
 // Allocate allocates a new region of the given dimensions in the atlas.
@@ -265,6 +271,8 @@ func (a *TextureAtlas) Save(file string) (err error) {
 
 	return
 }
+
+func (a *TextureAtlas) Handle() uint32 { return a.texture }
 
 // Width returns the underlying texture width in pixels.
 func (a *TextureAtlas) Width() int { return a.width }
