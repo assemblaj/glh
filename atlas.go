@@ -7,7 +7,7 @@ package glh
 import (
 	"unsafe"
 
-	gl "github.com/go-gl/gl/v2.1/gl"
+	gl "github.com/go-gl/gl/v3.2-core/gl"
 
 	"image"
 	"image/png"
@@ -144,8 +144,8 @@ func (a *TextureAtlas) Commit(target uint32) {
 			0, gl.RGB, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
 
 	case 1:
-		gl.TexImage2D(target, 0, gl.LUMINANCE, int32(a.width), int32(a.height),
-			0, gl.LUMINANCE, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
+		gl.TexImage2D(target, 0, gl.RED, int32(a.width), int32(a.height),
+			0, gl.RED, gl.UNSIGNED_BYTE, unsafe.Pointer(&a.data[0]))
 	}
 
 	gl.BindTexture(target, 0)
